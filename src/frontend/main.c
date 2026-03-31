@@ -311,6 +311,9 @@ static void ui_mouse_move(fz_context *ctx, ui_state *ui, int x, int y)
   }
 }
 
+static void previous_page(fz_context *ctx, ui_state *ui, bool pan);
+static void next_page(fz_context *ctx, ui_state *ui, bool pan);
+
 static void ui_mouse_wheel(fz_context *ctx, ui_state *ui, float dx, float dy, int mousex, int mousey, bool ctrl, int timestamp)
 {
   fz_point scale = get_scale_factor(ui->window);
@@ -342,6 +345,24 @@ static void ui_mouse_wheel(fz_context *ctx, ui_state *ui, float dx, float dy, in
     (void)timestamp;
     float x = scale.x * dx * 5;
     float y = scale.y * dy * 5;
+
+    txp_renderer_bounds bounds;
+    if (txp_renderer_page_bounds(ctx, ui->doc_renderer, &bounds))
+    {
+      float range = bounds.pan_interval.y < 0 ? 0 : bounds.pan_interval.y;
+      float next_y = config->pan.y + y;
+      if (dy < 0 && next_y <= -range)
+      {
+        next_page(ctx, ui, 1);
+        return;
+      }
+      if (dy > 0 && next_y >= range)
+      {
+        previous_page(ctx, ui, 1);
+        return;
+      }
+    }
+
     config->pan.x -= x;
     config->pan.y += y;
     // fprintf(stderr, "wheel pan: (%.02f, %.02f) raw:(%.02f, %.02f)\n", x, y, dx, dy);
